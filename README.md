@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Suri Population Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Leaflet.js for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f5f5f5;
+      color: #222;
+      text-align: center;
+      padding: 30px;
+      transition: background-color 0.4s, color 0.4s;
+    }
+
+    h1 {
+      font-size: 2.8em;
+    }
+
+    #population {
+      font-size: 2em;
+      color: #0077cc;
+    }
+
+    #map {
+      height: 300px;
+      width: 100%;
+      max-width: 600px;
+      margin: 20px auto;
+      border-radius: 10px;
+    }
+
+    #chart {
+      max-width: 700px;
+      margin: 30px auto;
+    }
+
+    select, button {
+      padding: 8px 14px;
+      font-size: 1em;
+      margin: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.9em;
+      color: #666;
+    }
+
+    /* Dark Mode */
+    body.dark {
+      background-color: #1e1e1e;
+      color: #ddd;
+    }
+
+    body.dark #population {
+      color: #00ccff;
+    }
+
+    body.dark select, body.dark button {
+      background: #333;
+      color: #eee;
+      border: 1px solid #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>Estimated Population of Suri</h1>
+  <p id="population">Loading...</p>
+
+  <div>
+    <label for="yearSelector">Select a Year: </label>
+    <select id="yearSelector"></select>
+    <button onclick="toggleDarkMode()">🌙 Toggle Dark Mode</button>
+  </div>
+
+  <div id="map"></div>
+
+  <canvas id="chart" height="200"></canvas>
+
+  <footer>
+    Data source: [census2011.co.in](https://www.census2011.co.in/data/town/801666-suri-west-bengal.html) — Estimates from 2011 and 2025.<br>
+    Projected with constant growth model.
+  </footer>
+
+  <script>
+    const pop2011 = 67864;
+    const pop2025 = 96000;
+    const date2011 = new Date("2011-03-01");
+    const date2025 = new Date("2025-01-01");
+
+    function getGrowthRate() {
+      const years = (date2025 - date2011) / (1000 * 60 * 60 * 24 * 365.25);
+      return Math.pow(pop2025 / pop2011, 1 / years) - 1;
+    }
+
+    function estimatePopulationForYear(year) {
+      const baseYear = 2011;
+      const growthRate = getGrowthRate();
+      const yearsSince = year - baseYear;
+      return Math.round(pop2011 * Math.pow(1 + growthRate, yearsSince));
+    }
+
+    function updatePopulation() {
+      const year = new Date().getFullYear();
+      const population = estimatePopulationForYear(year);
+      document.getElementById("population").innerText = population.toLocaleString();
+    }
+
+    function populateYearSelector() {
+      const select = document.getElementById("yearSelector");
+      for (let year = 2011; year <= 2030; year++) {
+        const option = document.createElement("option");
+        option.value = year;
+        option.textContent = year;
+        if (year === new Date().getFullYear()) option.selected = true;
+        select.appendChild(option);
+      }
+
+      select.addEventListener("change", () => {
+        const year = parseInt(select.value);
+        const population = estimatePopulationForYear(year);
+        document.getElementById("population").innerText = population.toLocaleString();
+      });
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark");
+    }
+
+    // Map Initialization
+    function loadMap() {
+      const map = L.map('map').setView([23.9137, 87.5246], 13); // Suri coordinates
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      L.marker([23.9137, 87.5246]).addTo(map).bindPopup('Suri, West Bengal').openPopup();
+    }
+
+    // Chart Setup
+    function drawChart() {
+      const ctx = document.getElementById('chart').getContext('2d');
+      const years = [];
+      const values = [];
+      for (let y = 2011; y <= 2030; y++) {
+        years.push(y);
+        values.push(estimatePopulationForYear(y));
+      }
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: years,
+          datasets: [{
+            label: 'Estimated Population',
+            data: values,
+            borderColor: '#0077cc',
+            backgroundColor: 'rgba(0,119,204,0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              labels: { color: getComputedStyle(document.body).color }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: false,
+              ticks: {
+                callback: function(value) {
+                  return value.toLocaleString();
+                },
+                color: getComputedStyle(document.body).color
+              }
+            },
+            x: {
+              ticks: {
+                color: getComputedStyle(document.body).color
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Initialize
+    updatePopulation();
+    populateYearSelector();
+    loadMap();
+    drawChart();
+  </script>
+</body>
+</html>
